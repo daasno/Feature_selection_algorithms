@@ -1,0 +1,71 @@
+Safe <- function(df, class_label, score_opt, s){
+  #matrix(NA, nrow = length(list_of_feature), ncol = 1)
+  a <- 0
+  #new_df <- data.frame(matrix(NA, nrow = length(list_of_feature), ncol = length(list_of_feature)))
+repeat{
+  Sopt <- data.frame(feature=NA)
+  SU <- data.frame(feature=NA, su=NA)
+  a <- a+1
+  list_of_feature <- sample(colnames(df), size = s/2,replace = F)
+  for(i in list_of_feature){
+    if(is.na(i)==TRUE) {break}
+    su <- 2*mutinformation(df[class_label], select(df, i))/(entropy(select(df, i))+entropy(df[class_label]))
+    if(su > .01){
+      SU[i,"feature"] <- i
+      SU[i,"su"] <- su
+      #df <- subset(df, select = -c(SU[i,"feature"]))
+    }
+  }
+  SU <- SU %>%
+  na.omit()
+  keep <- SU$feature
+  df_1 = df[,(names(df) %in% keep)]
+  drop <- class_label
+  df_1 = df_1[,!(names(df_1) %in% drop)]
+  #SU <- SU %>% arrange(desc(su))
+  ####### As computation ############
+  As <- 0
+  for(feature in colnames(df_1)){
+    As <- As + mutinformation(df[class_label],df_1[feature])
+  }
+  ################################
+  ##### Cs & Rs computation #####
+  Rs <- 0
+  Cs <- 0
+  for(i in 1:length(colnames(df_1))){
+    for (j in i+1:length(colnames(df_1))){
+      if(j > length(colnames(df_1))){break}
+      else if(mutinformation(select(df_1, i), select(df_1, j)) > condinformation(select(df_1, i), select(df_1, j), S=df[class_label], method="emp")){
+      Rs <- mutinformation(select(df_1, i), select(df_1, j)) - condinformation(select(df_1, i), select(df_1, j), S=df[class_label], method="emp")
+      }
+      else if(mutinformation(select(df_1, i), select(df_1, j)) < condinformation(select(df_1, i), select(df_1, j), S=df[class_label], method="emp")){
+       Cs <-condinformation(select(df_1, i), select(df_1, j), S=df[class_label], method="emp") - mutinformation(select(df_1, i), select(df_1, j)) 
+      }
+    }
+  }
+  #################################
+  ######### Ds computation ########
+  Ds <- 0
+  for(i in 1:length(colnames(df_1))){
+    for (j in seq(i+1, length(colnames(df_1)))){
+      if(j > length(colnames(df_1))){break}
+      else {Ds <- mutinformation(select(df_1, i), select(df_1, j))}
+    }
+  }
+  ###############################
+  beta <- 1 + (Rs/(Rs+Cs))
+  gamma <- 1 - (Cs/(Cs+As))
+  score <- (As + gamma*(Cs**(beta/length(colnames(df_1))))) / sqrt(length(colnames(df_1)) + (beta * Ds))
+  if(is.na(score)==T){
+     return(0)
+  }
+  else if(score > score_opt){
+    score_opt <- score
+    Sopt <- rbind(Sopt[,1], colnames(df_1))
+  }
+  if(score-score_opt < 0.0001  | a > length(colnames(df_1))){
+    break
+  }
+}
+  return(Sopt)
+}
